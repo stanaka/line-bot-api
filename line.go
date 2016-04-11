@@ -50,6 +50,20 @@ type Content struct {
 	Location       Location        `json:"location"`
 }
 
+// ContentType constants
+const (
+	ContentTypeText int = 1 + iota
+	ContentTypeImage
+	ContentTypeVideo
+	ContentTypeAudio
+	ContentTypeUndefined5
+	ContentTypeUndefined6
+	ContentTypeLocation
+	ContentTypeSticker
+	ContentTypeUndefined9
+	ContentTypeContact
+)
+
 // Location is a location related data
 type Location struct {
 	Title     string `json:"title"`
@@ -99,14 +113,21 @@ func New(channelID string, channelSecret string, mid string) *API {
 		channelSecret: channelSecret,
 		mID:           mid,
 		Logger:        log.New(os.Stderr, "line-bot-api", 0),
+		Debug:         false,
 	}
 }
 
 // DecodeMessage decodes body to ReceivedMessage struct.
 func (api *API) DecodeMessage(body io.Reader) (*ReceivedMessage, error) {
-	decoder := json.NewDecoder(body)
 	var m ReceivedMessage
-	err := decoder.Decode(&m)
+	b, err := ioutil.ReadAll(body)
+	if err != nil {
+		return nil, err
+	}
+	if api.Debug {
+		api.Logger.Println("RecievedMessage Body:", string(b))
+	}
+	err = json.Unmarshal(b, &m)
 	if err != nil {
 		return nil, err
 	}
