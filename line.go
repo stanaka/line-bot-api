@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -88,6 +89,23 @@ type Response struct {
 	MessageID string        `json:"messageId"`
 	Timestamp float64       `json:"timestamp"`
 	Version   int           `json:"version"`
+}
+
+// UserProfiles is users' profile
+type UserProfiles struct {
+	Contacts []UserProfile `json:"contacts"`
+	Count    int           `json:"count"`
+	Total    int           `json:"total"`
+	Start    int           `json:"start"`
+	Display  int           `json:"display"`
+}
+
+// UserProfile is user's profile
+type UserProfile struct {
+	DisplayName   string `json:"displayName"`
+	Mid           string `json:"mid"`
+	PictureURL    string `json:"pictureUrl"`
+	StatusMessage string `json:"statusMessage"`
 }
 
 const (
@@ -194,4 +212,43 @@ func (api *API) SendMessage(to []string, text string) error {
 	}
 	api.Logger.Print("Response: ", result)
 	return nil
+}
+
+// GetUserProfiles obtains profiles of users
+func (api *API) GetUserProfiles(userMIDs []string) (*UserProfiles, error) {
+	mids := strings.Join(userMIDs, ",")
+	req, err := http.NewRequest("GET", baseEndPoint+"/v1/profiles?mids="+url.QueryEscape(mids), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", "application/json; charset=UTF-8")
+	req.Header.Add("X-Line-ChannelID", api.channelID)
+	req.Header.Add("X-Line-ChannelSecret", api.channelSecret)
+	req.Header.Add("X-Line-Trusted-User-With-ACL", api.mID)
+
+	client := &http.Client{
+		Timeout: time.Duration(30 * time.Second),
+	}
+	if api.proxyURL != nil {
+		client.Transport = &http.Transport{Proxy: http.ProxyURL(api.proxyURL)}
+	}
+
+	res, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+	var result UserProfiles
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		return nil, err
+	}
+	api.Logger.Print("Response: ", result)
+	return &result, nil
 }
